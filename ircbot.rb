@@ -1,4 +1,6 @@
 require "socket"
+require 'nokogiri'
+require 'open-uri'
 require "./jokes"
 
 class IRC_Bot
@@ -8,6 +10,8 @@ class IRC_Bot
     @port = port
     @nick = nick
     @channel = channel
+
+    @news_counter = 0
   end
 
   def run
@@ -15,6 +19,7 @@ class IRC_Bot
     @server.puts "USER #{@nick} 0 * #{@nick}"
     @server.puts "NICK #{@nick}"
     @server.puts "JOIN #{@channel}"
+    say("Hi, I'm a bot. I can tell you the time, news or a joke. Just type !time, !news or !time")
 
     until @server.eof? do
       msg = @server.gets
@@ -68,14 +73,15 @@ class IRC_Bot
       # HERE ARE SOME THINGS I CAN DO
       tell_jokes(msg)
       tell_time(msg)
-      say_random_things
+      say_headlines(msg)
+      # say_random_things
     end
   end
 
   def tell_jokes(msg)
     say_joke = false
     if msg.include?("!joke")
-      say("#{username(msg)}: #{JOKES[rand(JOKES.length)]}")
+      say("#{JOKES[rand(JOKES.length)]}")
     end
   end
 
@@ -105,8 +111,27 @@ class IRC_Bot
     sleep 30
   end
 
+  def say_headlines(msg)
+    say_headlines = false
+    if msg.include?("!news")
+      headlines = pull_headlines
+      headline_to_read = @news_counter % headlines.length
+      say(headlines[headline_to_read])
+      @news_counter += 1
+    end
+  end
+
+  def pull_headlines
+    doc = Nokogiri::HTML(open('http://www.cbc.ca/news'))
+    headlines = []
+    doc.css(".pinnableHeadline").each do |item|
+      headlines << item.text
+    end
+    headlines
+  end
+
 end
 
 
-ircbot = IRC_Bot.new("chat.freenode.net", "6667", "BotDaddy", "#bitmaker")
+ircbot = IRC_Bot.new("chat.freenode.net", "6667", "NewsBot", "#bitmakerlabs")
 ircbot.run
